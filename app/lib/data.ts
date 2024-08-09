@@ -121,7 +121,9 @@ export async function fetchFilteredInvoices(
           { status: { contains: query } },
         ],
       },
-      include: { customer: true },
+      include: {
+        customer: { select: { email: true, imageUrl: true, name: true } },
+      },
       orderBy: { date: "desc" },
       skip: offset,
       take: ITEMS_PER_PAGE,
@@ -156,23 +158,22 @@ export async function fetchInvoicesPages(query: string) {
 
 export async function fetchInvoiceById(id: string) {
   try {
-    const data = await sql<InvoiceForm>`
-      SELECT
-        invoices.id,
-        invoices.customer_id,
-        invoices.amount,
-        invoices.status
-      FROM invoices
-      WHERE invoices.id = ${id};
-    `;
+    const data = await prisma.invoices.findUniqueOrThrow({
+      where: { id },
+      select: {
+        id: true,
+        customerId: true,
+        amount: true,
+        status: true,
+      },
+    });
 
-    const invoice = data.rows.map((invoice) => ({
-      ...invoice,
-      // Convert amount from cents to dollars
-      amount: invoice.amount / 100,
-    }));
+    const invoice = {
+      ...data,
+      amount: data.amount / 100,
+    };
 
-    return invoice[0];
+    return invoice;
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch invoice.");
@@ -181,15 +182,13 @@ export async function fetchInvoiceById(id: string) {
 
 export async function fetchCustomers() {
   try {
-    const data = await sql<CustomerField>`
-      SELECT
-        id,
-        name
-      FROM customers
-      ORDER BY name ASC
-    `;
-
-    const customers = data.rows;
+    const customers = await prisma.customers.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: "asc" },
+    });
     return customers;
   } catch (err) {
     console.error("Database Error:", err);
