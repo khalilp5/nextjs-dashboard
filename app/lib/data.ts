@@ -158,7 +158,7 @@ export async function fetchInvoicesPages(query: string) {
 
 export async function fetchInvoiceById(id: string) {
   try {
-    const data = await prisma.invoices.findUniqueOrThrow({
+    const invoice = await prisma.invoices.findUnique({
       where: { id },
       select: {
         id: true,
@@ -168,10 +168,9 @@ export async function fetchInvoiceById(id: string) {
       },
     });
 
-    const invoice = {
-      ...data,
-      amount: data.amount / 100,
-    };
+    if (invoice) {
+      invoice.amount = invoice.amount / 100;
+    }
 
     return invoice;
   } catch (error) {
