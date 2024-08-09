@@ -113,28 +113,21 @@ export async function fetchFilteredInvoices(
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   try {
-    const invoices = await sql<InvoicesTable>`
-      SELECT
-        invoices.id,
-        invoices.amount,
-        invoices.date,
-        invoices.status,
-        customers.name,
-        customers.email,
-        customers.image_url
-      FROM invoices
-      JOIN customers ON invoices.customer_id = customers.id
-      WHERE
-        customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`} OR
-        invoices.amount::text ILIKE ${`%${query}%`} OR
-        invoices.date::text ILIKE ${`%${query}%`} OR
-        invoices.status ILIKE ${`%${query}%`}
-      ORDER BY invoices.date DESC
-      LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
-    `;
+    const invoices = await prisma.invoices.findMany({
+      where: {
+        OR: [
+          { customer: { name: { contains: query } } },
+          { customer: { email: { contains: query } } },
+          { status: { contains: query } },
+        ],
+      },
+      include: { customer: true },
+      orderBy: { date: "desc" },
+      skip: offset,
+      take: ITEMS_PER_PAGE,
+    });
 
-    return invoices.rows;
+    return invoices.map((invoice) => ({ ...invoice, ...invoice.customer }));
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch invoices.");
@@ -143,18 +136,17 @@ export async function fetchFilteredInvoices(
 
 export async function fetchInvoicesPages(query: string) {
   try {
-    const count = await sql`SELECT COUNT(*)
-    FROM invoices
-    JOIN customers ON invoices.customer_id = customers.id
-    WHERE
-      customers.name ILIKE ${`%${query}%`} OR
-      customers.email ILIKE ${`%${query}%`} OR
-      invoices.amount::text ILIKE ${`%${query}%`} OR
-      invoices.date::text ILIKE ${`%${query}%`} OR
-      invoices.status ILIKE ${`%${query}%`}
-  `;
+    const count = await prisma.invoices.count({
+      where: {
+        OR: [
+          { customer: { name: { contains: query } } },
+          { customer: { email: { contains: query } } },
+          { status: { contains: query } },
+        ],
+      },
+    });
 
-    const totalPages = Math.ceil(Number(count.rows[0].count) / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(Number(count) / ITEMS_PER_PAGE);
     return totalPages;
   } catch (error) {
     console.error("Database Error:", error);
