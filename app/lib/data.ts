@@ -36,6 +36,8 @@ export async function fetchRevenue() {
 
 export async function fetchLatestInvoices() {
   try {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     const invoices = await prisma.invoices.findMany({
       select: {
         amount: true,
@@ -66,6 +68,7 @@ export async function fetchLatestInvoices() {
 
 export async function fetchCardData() {
   try {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
     const invoiceCountPromise = prisma.invoices.count();
     const customerCountPromise = prisma.customers.count();
     const invoiceStatusPromise = prisma.invoices.groupBy({
