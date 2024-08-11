@@ -7,20 +7,51 @@ import { redirect } from "next/navigation";
 
 const FormSchema = z.object({
   id: z.string(),
-  customerId: z.string(),
-  amount: z.coerce.number(),
-  status: z.enum(["pending", "paid"]),
+  customerId: z.string({
+    invalid_type_error: "Please select a customer",
+  }),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: "Please enter an amount greater than $0" }),
+  status: z.enum(["pending", "paid"], {
+    invalid_type_error: "Please select a status",
+  }),
   date: z.string(),
 });
 
 const CreateInvoice = FormSchema.omit({ id: true, date: true });
 
-export const createInvoice = async (data: FormData) => {
-  const { customerId, amount, status } = CreateInvoice.parse({
+export type State = {
+  errors?: {
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message?: string | null;
+};
+
+export const createInvoice = async (
+  prevState: State,
+  data: FormData
+): Promise<State> => {
+  const {
+    success,
+    data: parsedData,
+    error,
+  } = CreateInvoice.safeParse({
     customerId: data.get("customerId"),
     amount: data.get("amount"),
     status: data.get("status"),
   });
+
+  if (!success) {
+    return {
+      errors: error.flatten().fieldErrors,
+      message: "Missing required fields. Failed to create invoice",
+    };
+  }
+
+  const { amount, customerId, status } = parsedData;
   try {
     const amountInCents = amount * 100;
     await prisma.invoices.create({
@@ -33,6 +64,7 @@ export const createInvoice = async (data: FormData) => {
     });
   } catch (error) {
     return {
+      errors: {},
       message: "Database Error: Failed to Create Invoice.",
     };
   }
@@ -43,12 +75,24 @@ export const createInvoice = async (data: FormData) => {
 
 const UpdateInvoice = FormSchema.omit({ id: true, date: true });
 
-export async function updateInvoice(id: string, formData: FormData) {
-  const { customerId, amount, status } = UpdateInvoice.parse({
+export async function updateInvoice(
+  id: string,
+  prevState: State,
+  formData: FormData
+): Promise<State> {
+  const { success, data, error } = UpdateInvoice.safeParse({
     customerId: formData.get("customerId"),
     amount: formData.get("amount"),
     status: formData.get("status"),
   });
+
+  if (!success) {
+    return {
+      errors: error.flatten().fieldErrors,
+      message: "Missing required fields. Failed to create invoice",
+    };
+  }
+  const { amount, customerId, status } = data;
 
   const amountInCents = amount * 100;
 
@@ -72,7 +116,6 @@ export async function updateInvoice(id: string, formData: FormData) {
 }
 
 export async function deleteInvoice(id: string) {
-  throw new Error("Failed to delete invoice");
   try {
     await prisma.invoices.delete({ where: { id: id } });
     revalidatePath("/dashboard/invoices");
