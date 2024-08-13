@@ -1,12 +1,4 @@
-import { sql } from "@vercel/postgres";
-import {
-  CustomerField,
-  CustomersTableType,
-  InvoiceForm,
-  InvoicesTable,
-  LatestInvoiceRaw,
-  Revenue,
-} from "./definitions";
+import { FormattedCustomersTable } from "./definitions";
 import { formatCurrency } from "./utils";
 import prisma from "./db";
 
@@ -197,17 +189,17 @@ export async function fetchCustomers() {
 
 export async function fetchFilteredCustomers(query: string) {
   try {
-    const data = await sql<CustomersTableType>`
+    const data: any[] = await prisma.$queryRaw`
 		SELECT
 		  customers.id,
 		  customers.name,
 		  customers.email,
 		  customers.image_url,
-		  COUNT(invoices.id) AS total_invoices,
-		  SUM(CASE WHEN invoices.status = 'pending' THEN invoices.amount ELSE 0 END) AS total_pending,
-		  SUM(CASE WHEN invoices.status = 'paid' THEN invoices.amount ELSE 0 END) AS total_paid
-		FROM customers
-		LEFT JOIN invoices ON customers.id = invoices.customer_id
+		  CAST(COUNT(invoices.id) AS INT) AS total_invoices,
+		  CAST(SUM(CASE WHEN invoices.status = 'pending' THEN invoices.amount ELSE 0 END) AS INT) AS total_pending,
+		  CAST(SUM(CASE WHEN invoices.status = 'paid' THEN invoices.amount ELSE 0 END) AS INT) AS total_paid
+		FROM "Customers" as customers
+		LEFT JOIN "Invoices" as invoices ON customers.id = invoices.customer_id
 		WHERE
 		  customers.name ILIKE ${`%${query}%`} OR
         customers.email ILIKE ${`%${query}%`}
@@ -215,7 +207,7 @@ export async function fetchFilteredCustomers(query: string) {
 		ORDER BY customers.name ASC
 	  `;
 
-    const customers = data.rows.map((customer) => ({
+    const customers: FormattedCustomersTable[] = data.map((customer) => ({
       ...customer,
       total_pending: formatCurrency(customer.total_pending),
       total_paid: formatCurrency(customer.total_paid),

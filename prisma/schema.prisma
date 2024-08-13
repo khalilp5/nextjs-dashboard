@@ -38,7 +38,7 @@ model Customers {
   name     String
   email    String
   imageUrl String     @map("image_url")
-  Invoices Invoices[]
+  invoices Invoices[]
 }
 
 model Revenue {
