@@ -33,7 +33,7 @@ export type State = {
 };
 
 export const createInvoice = async (
-  prevState: State,
+  _: State,
   data: FormData
 ): Promise<State> => {
   const {
